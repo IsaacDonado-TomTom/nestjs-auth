@@ -10,8 +10,8 @@ RUN npm install -g @nestjs/cli
 
 RUN nest new pong --package-manager npm
 
-RUN rm -rf /pong/src && mv ./pong_src ./src && mv ./src ./pong
+RUN rm -rf /pong/src && mv ./nestjs_src ./src && mv ./src ./pong
 
 WORKDIR /pong
 
-CMD ["npm run start:dev"]
+CMD ["npm", "run", "start:dev"]
