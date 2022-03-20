@@ -1,0 +1,21 @@
+
+  
+version: '3.8'
+
+services:
+
+  nestjs:
+    build: requirements/nestjs
+    image: nestjs:idonado
+    container_name: nestjs
+    init: true
+    networks:
+      - app_default
+    expose:
+      - "3000"
+    restart: always
+
+networks:
+
+  app_default:
+    driver: bridge
