@@ -1,5 +1,3 @@
-
-  
 version: '3.8'
 
 services:
@@ -9,11 +7,24 @@ services:
     image: nestjs:idonado
     container_name: nestjs
     init: true
+    environment:
+      - DEBIAN_FRONTEND
     networks:
       - app_default
     expose:
       - "3000"
+    volumes:
+      - nestsite:/pong
     restart: always
+
+volumes:
+
+  nestsite:
+    name: nestsite_volume
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: /home/$USER/nestsite
 
 networks:
 
