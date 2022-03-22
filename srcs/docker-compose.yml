@@ -2,10 +2,10 @@ version: '3.8'
 
 services:
 
-  nestjs:
-    build: requirements/nestjs
-    image: nestjs:idonado
-    container_name: nestjs
+  pong:
+    build: requirements/pong
+    image: pong:henkies
+    container_name: pong
     init: true
     environment:
       - DEBIAN_FRONTEND
@@ -14,17 +14,17 @@ services:
     expose:
       - "3000"
     volumes:
-      - nestsite:/pong
+      - pong:/pong
     restart: always
 
 volumes:
 
-  nestsite:
-    name: nestsite_volume
+  pong:
+    name: pong_volume
     driver_opts:
       type: 'none'
       o: 'bind'
-      device: /home/$USER/nestsite
+      device: /home/$USER/pong_volume/src
 
 networks:
 

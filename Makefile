@@ -1,4 +1,4 @@
-NAME = nestjs
+NAME = pong
 
 all: up
 
@@ -7,11 +7,15 @@ clean:
 
 fclean: clean
 	@ docker system prune -a
-	@ docker volume rm nestsite_volume
-	@ sudo rm -rf /home/$(USER)/nestsite
+	@ docker volume rm pong_volume
+	@ sudo rm -rf /home/$(USER)/pong_volume
+
+cleanup: clean
+	@ docker volume rm pong_volume
+	@ sudo rm -rf /home/$(USER)/pong_volume
 
 up:
-	@ mkdir -pv /home/$(USER)/nestsite
+	@ mkdir -pv /home/$(USER)/pong_volume/src
 	@ docker-compose -f srcs/docker-compose.yml --env-file ./srcs/.env up
 
 start:
@@ -20,4 +24,4 @@ start:
 stop:
 	@ docker-compose -f srcs/docker-compose.yml stop
 
-.PHONY: clean fclean reload all nestjs
+.PHONY: clean fclean reload all pong
