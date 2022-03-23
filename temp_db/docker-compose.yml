@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=user123
+      - POSTGRES_PASSWORD=pass123
+      - POSTGRES_DB=nestdb
+    networks:
+      - app_default
+    expose:
+      - "5432"
+    volumes:
+      - db:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  
+  db:
+    name: db_volume
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: /home/$USER/temp_db
+
+networks:
+
+  app_default:
+    driver: bridge
