@@ -6,7 +6,14 @@
 5. [Controllers/Providers](#controllers-providers)
 6. [Create modules, controllers, providers/services from nest cli](#nest-cli)
 7. [Create database models with PRISMA](#models-prisma)
-8. [Authentification, sessions and Json web tokens](#authentification)
+8. [ConfigModule](#config-module)
+9. [Using PrismaClient and accessing the database](#using-prismaclient)
+10. [Custom data transfer objects](#custom-dto)
+11. [Nestjs class validator](#class-validator)
+12. [Login logic and securing password](#login-segure-password)
+13. [Authentification, sessions and Json web tokens](#authentification)
+14. [Strategy](#strategy)
+15. [Guards](#guards)
 
 
 
@@ -347,9 +354,320 @@ export class PrismaService extends PrismaClient {
 
 
 
+<a name="using-prismaclient"></a>
+# Using PrismaClient and accessing database
+Now that we've correctly set up the PrismaService which extends from prisma client, we can import the database models into the AuthService and perform some logic with that.
+
+In case we receive information along with a post request for example, we need to catch it with the @Body decorator within the parameters of the function in the controller/router, and pass those values to the business logic in the provider.
+
+src/auth.controller.ts
+```ts
+import { Body, Controller, Post } from '@nestjs/common';
+import { AuthService } from './auth.service';
+
+@Controller('auth')
+export class AuthController {
+    private authService: AuthService;
+    constructor(authService: AuthService)
+    {
+        this.authService = authService;
+    }
+
+    @Post('signin')
+    signin(@Body() dto: any)
+    {
+        console.log('Gonna log dto');
+        console.log(
+            {
+                dto: dto,
+            }
+        );
+        console.log('Logged dto');
+        return (this.authService.signin());
+    }
+}
+```
+
+
+
+
+
+
+
+<a name="custom-dto"></a>
+# Custom data transfer objects
+The example above works fine but we're expecting any type as a dto, that isn't good practice in typescript and we should make a custom dto type.
+
+auth.dto.ts
+```ts
+//import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+
+export class AuthDto
+{
+    //@IsEmail()
+    //@IsNotEmpty()
+    email: string;
+    //@IsString()
+    //@IsNotEmpty()
+    hash: string;
+}
+```
+
+src/auth.controller.ts
+```ts
+import { Body, Controller, Post } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { AuthDto } from '../../../types/authDto'
+
+@Controller('auth')
+export class AuthController {
+    private authService: AuthService;
+    constructor(authService: AuthService)
+    {
+        this.authService = authService;
+    }
+
+    @Post('signin')
+    signin(@Body() dto: AuthDto)
+    {
+        console.log('Gonna log dto');
+        console.log(
+            {
+                dto: dto,
+            }
+        );
+        console.log('Logged dto');
+        return (this.authService.signin());
+    }
+}
+```
+
+
+
+
+
+
+
+<a name="class-validator"></a>
+# Nestjs Class validator
+The example above is working but nestjs provides some parameters to automatically do some checking for commonly used types. For example to check if a string is an email etc, we can add these decorators in our dto and it will catch errors in case of any.
+
+To use nestjs validation in your project run
+
+```bash
+npm i --save class-validator class-transformer
+```
+
+Before anything works though we need to configure the app to allow pipe validation throughout the project, open up the main.ts where the app is boostrapped and add this:
+
+src/main.ts
+```ts
+import { ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { ServerModule } from './server.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(ServerModule);
+	app.enableCors();
+  app.useGlobalPipes(new ValidationPipe ());
+  await app.listen(3000);
+}
+bootstrap();
+```
+
+*Notice:*  the `app.enableCors();` line is to allow our app to accept requests from different domains.
+
+Now let's add some validation do our dto:
+```ts
+import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+
+export class AuthDto
+{
+    @IsEmail()
+    @IsNotEmpty()
+    email: string;
+    @IsString()
+    @IsNotEmpty()
+    password: string;
+}
+```
+
+Now nestjs will check if our fields are valid and return an error if they're not, and of course you should handle this in the front end.
+
+We can also add configuration information to the pipe validator to make our app more secure, for example we can make it so that a user cannot inject values besides the one established by the defined dto by adding the whitelist configuration.
+
+src/main.ts
+```ts
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.enableCors();
+  app.useGlobalPipes(new ValidationPipe ({
+    whitelist: true,
+  }));
+  await app.listen(3000);
+}
+bootstrap();
+```
+
+
+
+
+
+
+
+
+<a name="login-secure-password"></a>
+# Login logic and securing the password
+Let's create some signup logic, and some login logic and secure our passwords in the process but we'll be passing the dto to our service function which will perform all of the magic.
+
+src/auth/auth.controller.ts
+```ts
+import { Body, Controller, Post } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { AuthDto } from '../../types/authDto'
+
+@Controller('auth')
+export class AuthController {
+    private authService: AuthService;
+    constructor(authService: AuthService)
+    {
+        this.authService = authService;
+    }
+
+    @Post('signin')
+    signin(@Body() dto: AuthDto)
+    {
+        return (this.authService.signin(dto));
+    }
+
+    @Post('signup')
+    signup(@Body() dto: AuthDto)
+    {
+        return (this.authService.signup(dto));
+    }
+}
+```
+
+Now we'll use argon2 to hash and securely store our passwords
+
+```bash
+npm install argon2
+```
+
+We'll make a signup(dto: AuthDto) function in our auth service that will 
+
++ Be async because prismaService does some fetching and placing in the db and argon does some fetching too.
++ Generate hash from the password
++ Save the user in the db
++ Return the saved user for now
+
+src/auth/auth.service.ts
+```ts
+// INSIDE service class!
+async signup(dto: AuthDto)
+    {
+        // Hash password
+        const hash = await argon.hash(dto.password);
+
+        // Save user in db
+        const user = await this.prisma.user.create({
+            data: {
+                email: dto.email,
+                hash: hash,
+            },
+        })
+
+
+        return (
+            {
+                user: user,
+            }
+            );
+    }
+```
+
+Create a user with Postman or any other similar software, you'll receive the used as the body!
+
+Since we set our email to be unique in the prisma schema, it will throw an error if the email you tried to sign up with is not unique. Make sure to catch any errors and define the behavior to check whether the error comes from prisma, the documentation provides us with codes and ways to check.
+
+```ts
+try {
+// ... CODE WHERE WE TRY TO CREATE USER 
+}
+catch(error)
+{
+	if (error instanceof PrismaClientKnownRequestError
+	{
+		if (error.code === 'P2002')
+		{
+			throw new ForbiddenException("Email is taken.");
+		}
+	}
+]
+```
+
+Now time for the sign-in logic
+
+We have to 
+
++ Make the function async because prisma and argon fetch stuff.
++ Find user by email.
++ If the user doesn't exist, throw an exception
++ Compare password
++ If it's wrong throw another exception
++ Send back the user for now
+
+```ts
+// ... INSIDE service class
+    async signin(dto: AuthDto)
+    {
+        // Try to find by email with prisma.user.findUnique
+        const user: any = await this.prisma.user.findUnique({
+            where: {
+                email: dto.email,
+            },
+        });
+        // Returns null if user is not found
+
+        // Check if user is found
+        if (!user)
+        {
+            throw new ForbiddenException('Invalid email');
+        }
+        else
+        {
+            // Compare passwords through hash using argon.verify, it accepts the hash and password
+            const hashVerify: any =  await argon.verify(user.hash, dto.password);
+            // Returns null if comparing failed
+
+            //Checks if comparison failed
+            if (!hashVerify)
+            {
+                throw new ForbiddenException('Invalid password');
+            }
+            else
+            {
+                // Send back the user for now
+                return (user);
+            }
+        }
+    }
+```
+
+
+
+
+
+
+
+
 <a name="authentification"></a>
 # Authentification, sessions & json web tokens
-After setting up basic authentification we need to allow the user to log in only once in a while. Sessions is one technique to achieve that, the other one is using json web tokens. JWT is the way we're headed. 
+After setting up basic authentification we need to allow the user to log in only once in a while. Sessions is one technique to achieve that, the other one is using json web tokens. JWT is what we'll use, the user provides a user-password pair, we return a JWT which will act as its `passport` to navigate the website
 
 `npm install --save @nestjs/jwt passport-jwt && npm install --save-dev @types/passport-jwt`
 
@@ -378,21 +696,7 @@ export class authModule
 and pass it as a dependency injection to the service class constructor.
 
 ```typescript
-import { Module } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { AuthController } from './auth.controller';
-import { PrismaModule } from '../prisma/prisma.module';
-import { JwtModule } from '@nestjs/jwt';
-
-@Module({
-  imports: [JwtModule.register({})],
-  providers: [AuthService],
-  controllers: [AuthController]
-})
-
-export class authModule
-{
-    import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthDto } from './dto';
 import * as argon from 'argon2';
@@ -414,3 +718,80 @@ export class AuthService {
 		......................
 }
 ```
+
+
+Create an async signToken() method within the auth service class that sets the configuration for our jwt functions and returns a promise generic of type object with an access_token string `{ access_token: string }`, it will accept the user's id and email as parameters, we'll add those as claims to our token, and we can add as many claims as we want.
+
+```typescript
+async signToken(userId: number, email: string):Promise<{ access_token: string }>
+    {
+        // Create a payload object, sub is standard for jwt, we'll use ID, and our own claim (email)
+        const payload = {
+            sub: userId,
+            email
+        }
+
+        // Grab secret string from environment
+        const secret: string = this.config.get('SECRET');
+
+        // Generate token using our payload object through jwt.signAsync
+        // Function accepts the payload object and an object with the required secret key, and the expiration time of the token
+        const token = await this.jwt.signAsync(payload, {
+            expiresIn: '15m',
+            secret: secret,
+        });
+
+        // Return as an object that contains an access_token string.
+        return ({
+            access_token: token
+        });
+    }
+```
+
+Now modify the sign in and sign up functions so that they return they call and return the value of the signToken function.
+
+
+
+
+
+<a name="strategy"></a>
+# Strategy
+Now we're returning an object with the access token, but say we want to visit a restricted page, we need to set up some logic that allows the user to include the token we made in the header of the requests under authorization. (`Bearer [token]`) ..
+
+The logic that verifies that the authorization Bearer is correct is called a strategy.
+
+It's basically a class that we'll import, create a folder in the auth module called strategy and make a baron export, with a file called `jwt.strategy.ts` 
+
+Make a class called JwtStrategy which extends from the passport strategy from nestjs/passport , it accepts Strategy which comes from passport-jwt, and call the super constructor within the constructor with an object and some settings that'll basically state; where to extract the token from (the header->authorization), sets ignore expiration to false, sets the secret defined in the environment.. We'll need to make the class injectable and inject the ConfigService in order to obtain the secret.
+
+Finally you should define  validate(payload) method within the class that performs some additional validation and returns the payload, we'll just log the payload.
+
+src/auth/strategy/jwt.strategy.ts
+```ts
+import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { PassportStrategy } from "@nestjs/passport";
+import { ExtractJwt, Strategy } from "passport-jwt";
+
+@Injectable()
+export class JwtStrategy extends PassportStrategy(Strategy) {
+    constructor(private config: ConfigService)
+    {
+        super({
+            jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+            secretOrKey: config.get('SECRET'),
+        })
+    }
+		validate(payload: any)
+    {
+        console.log(payload);
+        return (payload);
+    }
+}
+```
+
+Make sure to set the newly created strategy class as a provider for the auth module.
+
+The strategy has been configured and can now be used to check user tokens, create a new route to protect it with our strategy.
+
+`1:55`
