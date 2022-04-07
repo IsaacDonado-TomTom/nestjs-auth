@@ -14,6 +14,12 @@
 13. [Authentification, sessions and Json web tokens](#authentification)
 14. [Strategy](#strategy)
 15. [Guards](#guards)
+16. [Specific status codes](#specific-status-codes)
+17. [e2e testing](#e2e)
+18. [dotenv-cli](#dotenv-cli)
+19. [NPM script hooks](#npm-script-hooks)
+20. [Automating DB deletion through prisma](#prisma-db-cleanup)
+21. [e2e testing using Pactum](#e2e-pactum)
 
 
 
@@ -794,4 +800,725 @@ Make sure to set the newly created strategy class as a provider for the auth mod
 
 The strategy has been configured and can now be used to check user tokens, create a new route to protect it with our strategy.
 
-`1:55`
+```bash
+nest g module example
+nest g controller example
+nest g service example
+```
+
+src/example/example.controller.ts
+```ts
+import { Controller, Get, Body } from '@nestjs/common';
+import { ExampleService } from './example.service';
+
+@Controller('example')
+export class ExampleController {
+
+    constructor(private exampleService: ExampleService)
+    {
+
+    }
+
+    @Get()
+    example (@Body() info: any)
+    {
+        return (this.exampleService.example(info));
+    }
+}
+```
+
+For now `this.exampleService.example(info)` will just log the info and return a string.
+
+In order to make our app check for the token using the jwt passport strategy we need to use [@UseGuards() decorators](https://docs.nestjs.com/guards). 
+
+
+
+
+
+
+
+<a name="guards"></a>
+# Guards
+A guard is a decorator that will stand in front of our route and will allow or not allow access to the route, using a provided strategy to check for legitimate access. 
+
+It's possible to make your own custom guards but for the current case nestjs provides an auth guard that works and serves perfectly, it's included in `@nestjs/passport`.
+
+Add the `UseGuard()` above the Get() route. and within the decorator parameter, we'll use AuthGuard([name  of strategy])
+
+src/example/example.controller.ts
+```ts
+import { Controller, Get, Body, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { ExampleService } from './example.service';
+
+@Controller('example')
+export class ExampleController {
+
+    constructor(private exampleService: ExampleService)
+    {
+
+    }
+
+		// We specify we want to use the 'jwt' strategy
+    @UseGuards(AuthGuard('jwt'))
+    @Get()
+    example (@Body() info: any)
+    {
+        return (this.exampleService.example(info));
+    }
+}
+```
+
+Notice the string we pass to AuthGuard() as a parameter, it says jwt, the name of our strategy. 
+When we created our strategy class by extending from nestjs' PassportStrategy, it automatically sets the name to jwt, but can change it and set it to be named however we'd like by providing a string as a second argument when extending, I'll leave it as jwt but I'll explicitly name it in the JwtStrategy class to make it more clear. This is of course all available in the documentation,.
+
+src/auth/strategy/jwt.strategy.ts
+```ts
+import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { PassportStrategy } from "@nestjs/passport";
+import { ExtractJwt, Strategy } from "passport-jwt";
+
+@Injectable()
+export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
+    constructor(private config: ConfigService)
+    {
+        super({
+            jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+            secretOrKey: config.get('SECRET'),
+        })
+    }
+
+    validate(payload: any)
+    {
+        console.log(payload);
+        return (payload);
+    }
+}
+```
+
+Now if we request a get() on website:port/example we'll get a 401 error; unauthorized.
+
+If we obtain a valid token however, and manually insert it in the header of the request under Authorization as `Bearer [token]`, we'll be able to access the page.
+
+Great, now to collect any useful information about the user, you must perform the needed logic in the strategy validate() method, anything you return from that function, gets added to the user request.
+
+Since our validate only returns the payload, we have access to the claims in the payload, id and email.
+
+src/example/example.controller.ts
+```ts
+import { Controller, Get, Body, UseGuards, Req } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { ExampleService } from './example.service';
+
+@Controller('example')
+export class ExampleController {
+
+    constructor(private exampleService: ExampleService)
+    {
+
+    }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Get()
+    example (@Req() request: any)
+    {
+        console.log(request.user);
+        return (JSON.stringify(request.user));
+    }
+}
+```
+
+
+
+
+
+
+<a name="custom-decorators"></a>
+# Custom decorators
+The example above is the simplest way of showing how nestjs works, but it's not good practice to use that those Express decorators because it's error prone, a better way of extracting information from the request is to follow [this guide on the nestjs website](https://docs.nestjs.com/custom-decorators) to create a custom decorator that will call a nestjs function specially for that.
+
+Create a folder in the auth folder since it's related, called `decorator` make an index.ts and GetUser.decorator.ts, apply the baron export and let's modify the code from the nestjs website in the GetUser.decorator.ts.
+
+src/auth/decorator/GetUser.decorator.ts
+```
+import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+
+export const GetUser = createParamDecorator(
+  (data: unknown, ctx: ExecutionContext) => {
+    const request: Express.Request = ctx.switchToHttp().getRequest();
+    const user = request.user;
+
+    return user;
+  },
+);
+```
+
+src/example/example.controller.ts
+```ts
+import { Controller, Get, Body, UseGuards, Req } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { PrismaClient } from '@prisma/client';
+import { GetUser } from 'src/auth/decorator';
+import { ExampleService } from './example.service';
+import { User } from '@prisma/client';
+
+@Controller('example')
+export class ExampleController {
+
+    constructor(private exampleService: ExampleService)
+    {
+
+    }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Get()
+    example (@GetUser() user: User)
+    {
+        console.log(user);
+        return (JSON.stringify(user));
+    }
+}
+```
+
+This achieves the same behavior but is safer, also notice we specify that our newly created decorator `GetUser()` returns a User type, this type is generated automatically by Prisma when we're creating database models, and is accessible from `@prisma/client`, another reason to love Prisma.
+
+We can also tweak the custom decorator to allow for the whole object to be returned or a specific key inside the object type.
+
+```ts
+import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+
+export const GetUser = createParamDecorator(
+  (data: string | undefined, ctx: ExecutionContext) => {
+    const request: Express.Request = ctx.switchToHttp().getRequest();
+    if (data)
+    {
+        return (request.user[data]);
+    }
+    return request.user;
+  },
+);
+```
+
+
+Now `@GetUser() wholeUser: User, @GetUser('email'): email: string` passed as arguments provide the User object and a string with the email of the user because it exists within the object.
+
+
+
+
+
+
+<a name="specific-status-codes"></a>
+# Specific status codes
+In case an app gained access to a route, we may want to define which status code it should return.
+Nestjs makes it easy, just add `@HttpCode(HttpStatus.OK)` above the request to set the status code to 200. You can type in the number but that's error-prone
+
+```text
+    CONTINUE = 100,
+    SWITCHING_PROTOCOLS = 101,
+    PROCESSING = 102,
+    EARLYHINTS = 103,
+    OK = 200,
+    CREATED = 201,
+    ACCEPTED = 202,
+    NON_AUTHORITATIVE_INFORMATION = 203,
+    NO_CONTENT = 204,
+    RESET_CONTENT = 205,
+    PARTIAL_CONTENT = 206,
+    AMBIGUOUS = 300,
+    MOVED_PERMANENTLY = 301,
+    FOUND = 302,
+    SEE_OTHER = 303,
+    NOT_MODIFIED = 304,
+    TEMPORARY_REDIRECT = 307,
+    PERMANENT_REDIRECT = 308,
+    BAD_REQUEST = 400,
+    UNAUTHORIZED = 401,
+    PAYMENT_REQUIRED = 402,
+    FORBIDDEN = 403,
+    NOT_FOUND = 404,
+    METHOD_NOT_ALLOWED = 405,
+    NOT_ACCEPTABLE = 406,
+    PROXY_AUTHENTICATION_REQUIRED = 407,
+    REQUEST_TIMEOUT = 408,
+    CONFLICT = 409,
+    GONE = 410,
+    LENGTH_REQUIRED = 411,
+    PRECONDITION_FAILED = 412,
+    PAYLOAD_TOO_LARGE = 413,
+    URI_TOO_LONG = 414,
+    UNSUPPORTED_MEDIA_TYPE = 415,
+    REQUESTED_RANGE_NOT_SATISFIABLE = 416,
+    EXPECTATION_FAILED = 417,
+    I_AM_A_TEAPOT = 418,
+    MISDIRECTED = 421,
+    UNPROCESSABLE_ENTITY = 422,
+    FAILED_DEPENDENCY = 424,
+    PRECONDITION_REQUIRED = 428,
+    TOO_MANY_REQUESTS = 429,
+    INTERNAL_SERVER_ERROR = 500,
+    NOT_IMPLEMENTED = 501,
+    BAD_GATEWAY = 502,
+    SERVICE_UNAVAILABLE = 503,
+    GATEWAY_TIMEOUT = 504,
+    HTTP_VERSION_NOT_SUPPORTED = 505
+```
+
+
+
+
+
+
+
+
+<a name="e2e"></a>
+# End 2 end testing
+
+The first thing we need to do is set up a database for e2e tests but before that, clean up our app.e2e-spec.ts file located in the test folder of our project.
+
+Let's make a describe block (from Jest, a library for JS testing included in nestjs), kill the server, it doesn't need to be running.
+
+project-directory/test/app.e2e-spec.ts
+```ts
+
+describe('App e2e', function () {
+  it.todo('Passed')
+})
+```
+
+Now run a script included by nestjs. 
+
+```bash
+npm run test:e2e
+```
+
+If we run the script we see some output and it supposedly passed a test, because we didn't define any.
+
+First we need to create a module that basically copies our main app module and sets it ready
+
+```ts
+import { Test } from "@nestjs/testing";
+import { AppModule } from "src/app.module";
+
+describe('App e2e', function () {
+  beforeAll( async function () {
+    const moduleRef = await Test.createTestingModule({
+      imports: [ AppModule ],
+    }).compile()
+  } );
+  it.todo('Passed')
+})
+```
+
+And in order to make these tests run automatically any time a change is detected, add `--watch --no-cache` to the e2e testing script; `"test:e2e": "jest --watch --no-cache --config ./test/jest-e2e.json"`
+
+So far what has happened is we have cloned our main app module, but we need to create an app from it just like we do in the main.ts, we also have to configure everything as close as possible to our app. 
+
+```ts
+import { INestApplication, ValidationPipe } from "@nestjs/common";
+import { Test } from "@nestjs/testing";
+import { appendFile } from "fs";
+import { AppModule } from "../src/app.module";
+
+// Describe block
+describe('App e2e', function () {
+  // Set variable before beforeAll so it's accessible outside the scope
+  let app: INestApplication;
+
+  // beforeAll function defining a module before anything happens, and then compile()
+  beforeAll( async function () {
+    const moduleRef = await Test.createTestingModule({
+      imports: [ AppModule ],
+    }).compile();
+
+    // Creating the Nest application
+    app = moduleRef.createNestApplication();
+
+    // Applying necessary configuration.
+    app.useGlobalPipes(new ValidationPipe({
+      whitelist: true,
+    }));
+
+    // Bootstrap app copy
+    await app.init();
+
+  } );
+
+  // Define what happens after all, close app.
+  afterAll(function ()
+  {
+    app.close();
+  });
+
+  it.todo('Passed');
+})
+```
+
+Now let's setup a separate database for testing and all the related scripts.
+
+docker-compose.yml
+```yml
+version: '3.8'
+
+services:
+
+  testdb:
+    image: postgres:14.2
+    ports:
+      - 5435:5432
+    container_name: testdb
+    environment:
+      - POSTGRES_USER=user123
+      - POSTGRES_PASSWORD=pass123
+      - POSTGRES_DB=nestdb
+    networks:
+      - app_default
+    restart: always
+
+networks:
+
+  app_default:
+    driver: bridge
+```
+
+Now let's add these scripts to package.json to automatically restart and restore our test database.
+
+```json
+		"prisma:test:deploy": "prisma migrate deploy",
+    "db:test:rm": "docker-compose -f ../db_docker/docker-compose.yml rm -s -f -v testdb",
+    "db:test:up": "docker-compose -f ../db_docker/docker-compose.yml up -d testdb",
+    "db:test:restart": "npm run db:test:rm && npm run db:test:up && sleep 1 && npm run prisma:test:deploy",
+```
+
+Now there's one issue with what we just did, whenever prisma:test:deploy runs, prisma will try to grab the environment variable with the DATABASE_URL from the `.env` file, and inside that file, we've explicitly specified the main database url we're using.
+
+<a name="dotenv-cli"></a>
+Ideally we'd like to create a new environment file called `.env.test` and grab values from there whenever running tests and for that we need **dotenv-cli**
+
+```bash
+npm install dotenv-cli
+```
+
+And now we need to prefix the prisma script with `dotenv -e [env-file] -- `
+
+```json
+"prisma:test:deploy": "dotenv -e .env.test -- prisma migrate deploy",
+```
+
+but also, the e2e test script, so nestjs knows it should use that environment
+
+```json
+"test:e2e": "dotenv -e .env.test -- jest --watch --no-cache --config ./test/jest-e2e.json"
+```
+
+<a name="npm-script-hooks"></a>
+
+Add a hook to the test:e2e script that resets the test database
+
+```json
+    "pretest:e2e": "npm run db:test:restart",
+    "test:e2e": "dotenv -e .env.test -- jest --watch --no-cache --config ./test/jest-e2e.json"
+```
+
+*Remember* to prefix ` npx prisma studio` with `dotenv -e .env.test -- ` to force the correct environment file in case you want to visualize the test database.
+
+
+
+
+<a name="prisma-db-cleanup"></a>
+# Automating DB deletion through prisma
+When executing e2e tests, there may be instances in which we don't want to completely restart the docker container but we might need to clean the database while we're testing. We'll need to add another method to a PrismaService class called `cleanDb()` and specify what it should do.
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { PrismaClient } from '@prisma/client';
+
+@Injectable()
+export class PrismaService extends PrismaClient {
+    constructor(private config: ConfigService)
+    {
+        super({
+            datasources: {
+                db: {
+                    url: config.get('DATABASE_URL'),
+                },
+            },
+        });
+    }
+
+    cleanDb()
+    {
+        this.user.deleteMany();
+				this.other.deleteMany();
+    }
+}
+```
+
+The code above works, remember prisma creates objects from the models we provide which is why we can access `this.user` but sometimes we might need for things to be deleted in a certain order to avoid errors, and although we specify that user should be deleted first, the prisma class our service extends from might do some optimizations and change the order, so we need to use the `$transaction` identifier prisma provides.
+
+```ts
+cleanDb()
+    {
+        return this.$transaction([
+            this.user.deleteMany(),
+						this.other.deleteMany();
+        ]);
+    }
+```
+
+Now if we want access to the PrismaService module, we just have to declare a variable and assign it the service through our created app copy.
+
+```ts
+import { INestApplication, ValidationPipe } from "@nestjs/common";
+import { Test } from "@nestjs/testing";
+import { appendFile } from "fs";
+import { PrismaService } from "src/prisma/prisma.service";
+import { AppModule } from "../src/app.module";
+
+// Describe block
+describe('App e2e', function () {
+  // Set variable before beforeAll so it's accessible outside the scope
+  let app: INestApplication;
+
+  // we'll store PrismaService here
+  let prisma: PrismaService;
+
+  // beforeAll function defining a module before anything happens, and then compile()
+  beforeAll( async function () {
+    const moduleRef = await Test.createTestingModule({
+      imports: [ AppModule ],
+    }).compile();
+
+    // Creating the Nest application
+    app = moduleRef.createNestApplication();
+
+    // Applying necessary configuration.
+    app.useGlobalPipes(new ValidationPipe({
+      whitelist: true,
+    }));
+
+    // Bootstrap app copy
+    await app.init();
+  
+    // Assign service to prisma and run cleanDb()
+    prisma = app.get(PrismaService);
+    prisma.cleanDb();
+  } );
+
+  // Define what happens after all, close app.
+  afterAll(function ()
+  {
+    app.close();
+  });
+
+  it.todo('Passed');
+})
+```
+
+
+Now we can set up the structure of our tests after the afterAll() block..
+
+```ts
+describe('Auth', function () {
+
+    describe('Signup', function () {
+      it.todo('Should sign up');
+    })
+
+    describe('Signin', function () {
+      it.todo('Should sign in')
+    })
+
+  })
+```
+
+
+
+<a name="e2e-pactum"></a>
+# e2e testing using Pactum
+PactumJS is a very easy to use library for testing API's. 
+
+To install it into our project
+
+```bash
+npm install pactum
+```
+
+Pactum is a library that requests data from a server, so far we copied the module but we didn't start the server, we must start it after we call app.init() in the beforeAll() block
+
+```ts
+// beforeAll function defining a module before anything happens, and then compile()
+  beforeAll( async function () {
+    const moduleRef = await Test.createTestingModule({
+      imports: [ AppModule ],
+    }).compile();
+
+    // Creating the Nest application
+    app = moduleRef.createNestApplication();
+
+    // Applying necessary configuration.
+    app.useGlobalPipes(new ValidationPipe({
+      whitelist: true,
+    }));
+
+    // Bootstrap app copy
+    await app.init();
+    // Start server
+    await app.listen(3333);
+  
+    // Assign service to prisma and run cleanDb()
+    prisma = app.get(PrismaService);
+    prisma.cleanDb();
+  } );
+```
+
+Now `import * as pactum from 'pactum';` and add some actual tests to our structure after the afterAll() block
+
+```ts
+  // AuthDto we'll use for testing
+  let dto: AuthDto = {
+    email: "email@email.com",
+    password: "pass"
+  }
+
+  describe('Auth', function () {
+
+    describe('Signup', function () {
+      it('Should sign up', function () {
+        return (pactum.spec().post('http://localhost:3333/auth/signup',).withBody(dto).expectStatus(201));
+      });
+    })
+
+    describe('Signin', function () {
+      it('Should sign up', function () {
+        return (pactum.spec().post('http://localhost:3333/auth/signin',).withBody(dto).expectStatus(201));
+      });
+    })
+
+  })
+```
+
+We can make this code a bit less verbose by setting the base url in the beforeAll() block
+
+```ts
+import { INestApplication, ValidationPipe } from "@nestjs/common";
+import { Test } from "@nestjs/testing";
+import { appendFile } from "fs";
+import { PrismaService } from "../src/prisma/prisma.service";
+import { AppModule } from "../src/app.module";
+import * as pactum from 'pactum';
+import { AuthDto } from "../types/authDto";
+
+// Describe block
+describe('App e2e', function () {
+  // Set variable before beforeAll so it's accessible outside the scope
+  let app: INestApplication;
+
+  // we'll store PrismaService here
+  let prisma: PrismaService;
+
+  // beforeAll function defining a module before anything happens, and then compile()
+  beforeAll( async function () {
+    const moduleRef = await Test.createTestingModule({
+      imports: [ AppModule ],
+    }).compile();
+
+    // Creating the Nest application
+    app = moduleRef.createNestApplication();
+
+    // Applying necessary configuration.
+    app.useGlobalPipes(new ValidationPipe({
+      whitelist: true,
+    }));
+
+    // Bootstrap app copy
+    await app.init();
+    // Start server
+    await app.listen(3333);
+  
+    // Assign service to prisma and run cleanDb()
+    prisma = app.get(PrismaService);
+    prisma.cleanDb();
+
+    // Set base URL
+    pactum.request.setBaseUrl('http://localhost:3333');
+  } );
+
+  // Define what happens after all, close app.
+  afterAll(function ()
+  {
+    app.close();
+  });
+
+  // AuthDto we'll use for testing
+  let dto: AuthDto = {
+    email: "email@email.com",
+    password: "pass"
+  }
+
+  describe('Auth', function () {
+
+    describe('Signup', function () {
+      it('Should sign up', function () {
+        return (pactum.spec().post('/auth/signup',).withBody(dto).expectStatus(201));
+      });
+    })
+
+    describe('Signin', function () {
+      it('Should sign up', function () {
+        return (pactum.spec().post('/auth/signin',).withBody(dto).expectStatus(201));
+      });
+    })
+
+  })
+})
+```
+
+It would be nice to see the response in case of an error, or for any reason. we can use the .inspect() after the request to view the response in the terminal
+
+```ts
+  describe('Auth', function () {
+
+    describe('Signup', function () {
+      it('Should sign up', function () {
+        return (pactum.spec().post('/auth/signup',).withBody(dto).expectStatus(201).inspect());
+      });
+    })
+
+    describe('Signin', function () {
+      it('Should sign up', function () {
+        return (pactum.spec().post('/auth/signin',).withBody(dto).expectStatus(201).inspect());
+      });
+    })
+
+  })
+```
+
+Now, say we want to store a piece of the response inside a variable, we don't need to declare a variable and set it there, pactum provides a functionality for storing something from the response into a variable and allows you to use it later in another test using `stores()`
+
+```ts
+  // AuthDto we'll use for testing
+  let dto: AuthDto = {
+    email: "email@email.com",
+    password: "pass"
+  }
+
+  describe('Auth', function () {
+
+    describe('Signup', function () {
+      it('Should sign up', function () {
+        return (pactum.spec().post('/auth/signup',).withBody(dto).expectStatus(201));
+      });
+    })
+
+    describe('Signin', function () {
+      it('Should sign up', function () {
+        return (pactum.spec().post('/auth/signin',).withBody(dto).expectStatus(201).stores('userToken', 'access_token'));
+      });
+    })
+
+  })
+```
+
+This now stores the access_token received from the last request into a variable we named userToken, in order to access this variable in the test we need to use a special notation: `$S{userToken}`
