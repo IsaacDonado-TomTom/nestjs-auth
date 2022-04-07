@@ -1,3 +1,10 @@
+# To run project
+
+1. Start the databases by `cd nestjs && npm run db:dev:restart && npm run db:test:restart`
+2. `npm run start:dev && cd ../nextjs && npm run dev`
+3. localhost:3001 is the frontend, localhost:3000 is the backend.
+
+
 # Table of Contents
 1. [Setting up the first App](#set-up)
 2. [Look into files generated](#files)
