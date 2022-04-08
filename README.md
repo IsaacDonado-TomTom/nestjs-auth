@@ -1,8 +1,30 @@
-# To run project
+# To run project locally with db on docker
 
 1. Start the databases by `cd nestjs && npm run db:dev:restart && npm run db:test:restart`
 2. `npm run start:dev && cd ../nextjs && npm run dev`
 3. localhost:3001 is the frontend, localhost:3000 is the backend.
+
+
+In nestjs folder
++ To reset development databse: `npm run db:dev:restart`
++ To reset e2e test databse: `npm run db:test:restart`
++ To run e2e tests: `npm run test:e2e`
+
+
+# To run project on docker container
+
+`make` in the terminal when in the project directory.
+
+This will:
+
+1. Copy nestjs and nextjs projects to app_docker/nestjs and app_docker/nextjs folders in order to dockerize.
+2. Start test & development databases, frontend and backend containers.
+
+
++ To bring down all containers: `make clean`
++ To bring down/up db containers only: `make downdb` & `make updb`
++ To bring up frontend and backend: `make up`
++ To bring down everything and delete created folder: `make fclean`
 
 
 # Table of Contents

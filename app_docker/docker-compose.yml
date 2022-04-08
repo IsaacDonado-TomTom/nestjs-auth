@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  nestjs:
+    build: nestjs
+    image: nestjs:idonado
+    container_name: nestjs
+    ports:
+      - 3000:3000
+    networks:
+      - app_default
+#    expose:
+#      - "5432"
+#    volumes:
+#      - app_nestjs:/
+    restart: always
+
+  nextjs:
+    build: nextjs
+    image: nextjs:idonado
+    container_name: nextjs
+    ports:
+      - 3001:3001
+    networks:
+      - app_default
+#    expose:
+#      - "5432"
+#    volumes:
+#      - app_nextjs:/
+    restart: always
+
+
+#volumes:
+#  
+#  app_nestjs:
+#    name: app_nestjs_volume
+#    driver_opts:
+#      type: 'none'
+#      o: 'bind'
+#      device: /home/$USER/Desktop/local_pong/nestjs
+
+#  app_nextjs:
+#    name: app_nextjs_volume
+#    driver_opts:
+#      type: 'none'
+#      o: 'bind'
+#      device: /home/$USER/Desktop/local_pong/nextjs
+
+networks:
+
+  app_default:
+    driver: bridge
