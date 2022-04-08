@@ -32,4 +32,6 @@ up:
 	@ docker-compose -f db_docker/docker-compose.yml up --d
 	@ docker-compose -f app_docker/docker-compose.yml up --d
 
+re: fclean all
+
 .PHONY: clean fclean reload all nestjs_auth hosts undo-hosts
