@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { AuthDto } from 'types/authDto';
+import { LoginDto } from 'types/loginDto';
 import { PrismaService } from '../prisma/prisma.service';
 import * as argon from 'argon2';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
@@ -14,7 +15,7 @@ export class AuthService {
         
     }
 
-    async signin(dto: AuthDto)
+    async signin(dto: LoginDto)
     {
         // Try to find by email with prisma.user.findUnique
         const user: any = await this.prisma.user.findUnique({
@@ -61,6 +62,7 @@ export class AuthService {
                 data: {
                     email: dto.email,
                     hash: hash,
+                    nickname: dto.nickname,
                 },
             })
 
@@ -74,6 +76,10 @@ export class AuthService {
             {
                 if (error.code === 'P2002')
                     throw new ForbiddenException('Email taken');
+            }
+            else
+            {
+                throw new ForbiddenException('User creation unsuccessful.');
             }
         }
     }

@@ -2,18 +2,12 @@ import React from 'react';
 import { GetStaticProps, NextPage } from 'next';
 import styles from '../styles/Bootstrap.module.css';
 import MainLayout from '../components/MainLayout'
+import { HomeDto } from '../../nestjs/types/homeDto'
 
-const Home: NextPage<{ homeInfo: any }> = ( {homeInfo} ) => {
+const Home: NextPage<{homeInfo: HomeDto}> = ( {homeInfo} ) => {
   // Set error message value
   const [errorMsg, setErrorMsg] = React.useState("");
 
-
-  // Console log static props
-  // console.log({homeInfo});
-  //if (typeof({homeInfo}) === undefined)
-  //{
-  //  console.log("homeInfo is undefined");
-  //}
   
   // signIn on form submit
   const signIn = async function (context: any)
@@ -66,74 +60,71 @@ const Home: NextPage<{ homeInfo: any }> = ( {homeInfo} ) => {
     console.log(context.target[1].value);
   }
 
-  return (
-  <MainLayout>
-  <div className={ styles["login-form-wrap"] }>
-    <h2>Login</h2>
-    <form onSubmit={ signIn } className={ styles["login-forms"] }>
-      <p>
-      <input type="email" id="email" name="email" placeholder="Email Address" required={true} /><i className="validation"><span></span><span></span></i>
-      </p>
-      <p>
-      <input type="password" id="password" name="password" placeholder="Password" required={true} /><i className="validation"><span></span><span></span></i>
-      </p>
-      <p className={ styles.errormsg }> { errorMsg } </p>
-      <p>
-      <input type="submit" id="login" value="Login" />
-      </p>
-    </form>
-    <div className={ styles["create-account-wrap"] }>
-      <p>Not a member? <a href="signup">Create Account</a></p><p>
-    </p></div>
-  </div>
-  </MainLayout>
-  );
+
+  if (homeInfo.notfound)
+  {
+    console.log("Rendering page if unauthenticated");
+    return (
+    <MainLayout>
+    <div className={ styles["login-form-wrap"] }>
+      <h2>Login</h2>
+      <form onSubmit={ signIn } className={ styles["login-forms"] }>
+        <p>
+        <input type="email" id="email" name="email" placeholder="Email Address" required={true} /><i className="validation"><span></span><span></span></i>
+        </p>
+        <p>
+        <input type="password" id="password" name="password" placeholder="Password" required={true} /><i className="validation"><span></span><span></span></i>
+        </p>
+        <p className={ styles.errormsg }> { errorMsg } </p>
+        <p>
+        <input type="submit" id="login" value="Login" />
+        </p>
+      </form>
+      <div className={ styles["create-account-wrap"] }>
+        <p>Not a member? <a href="signup">Create Account</a></p><p>
+      </p></div>
+    </div>
+    </MainLayout>
+    );
+  }
 };
 
 export const getStaticProps: GetStaticProps = async function (context)
 {
   try
   {
-    // Gotta add second object parameter with info
+    // Gotta add second object parameter with info... or not
     const response: any = await fetch('http://localhost:3000/home');
-    try
+    const data: any = await response.json();
+
+    if (data.statusCode === 200)
     {
-      const data: any = await response.json();
-
-      // Logging response
       console.log(data);
-
-      // If use is not authenticated
-      if (data.statusCode === 401)
-      {
-        console.log("User is not authenticated");
-        return ({
-          props: {
-            data: null,
-          }
-        });
-      }
-      
-      // Return data
+    }
+    else
+    {
       return {
         props: {
-          data: data,
+          homeInfo: {
+            notfound: true,
+          }
         },
       };
     }
-    catch (error)
-    {
-      console.log('response.json() failed!');
-      console.log(error);
-    }
+
   }
   catch (error)
   {
     console.log('Fetch function failed to load localhost/home');
     console.log(error);
+    return {
+      props: {
+        data: null,
+      },
+    };
   }
 
-  // If an error was caught and return wasn't reached, return this
+  // If return wasn't reached, return this
   return {
     props: {
       data: null,

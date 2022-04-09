@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { User } from '@prisma/client';
 import { GetUser } from '../auth/decorator';
@@ -14,9 +14,8 @@ export class HomeController {
     }
 
     @Get()
-    home (@GetUser() user: User)
+    home (@Req() req: any)
     {
-        console.log(user);
-        return (JSON.stringify(user));
+        return (this.homeService.homepage(req.user.sub));
     }
 }

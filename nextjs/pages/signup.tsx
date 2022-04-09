@@ -21,6 +21,7 @@ const Home: NextPage = () => {
         body: JSON.stringify({
           email: context.target[0].value,
           password: context.target[1].value,
+          nickname: context.target[3].value,
         }),
         headers: {
           'Content-Type': 'application/json'
@@ -31,12 +32,16 @@ const Home: NextPage = () => {
       {
         const data: any = await response.json();
 
-        // If error code is 403, set the error msg in form
-        if (data.statusCode === 403)
+        // If error code is not 201, set the error msg in form
+        if (data.statusCode !== 201)
         {
           setErrorMsg(data.message);
         }
-        console.log(data);
+        else
+        {
+          // Define behaviour on success.
+          // Get request of index with token in the header.
+        }
       }
       catch (error)
       {
@@ -64,6 +69,9 @@ const Home: NextPage = () => {
       </p>
       <p>
       <input type="password" id="password" name="password" placeholder="Password" required={true} /><i className="validation"><span></span><span></span></i>
+      </p>
+      <p>
+      <input type="nickname" id="nickname" name="nickname" placeholder="Nickname" required={true} /><i className="validation"><span></span><span></span></i>
       </p>
       <p className={styles.errormsg}>{errorMsg}</p>
       <p>

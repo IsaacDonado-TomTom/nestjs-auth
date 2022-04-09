@@ -5,6 +5,7 @@ import { PrismaService } from "../src/prisma/prisma.service";
 import { AppModule } from "../src/app.module";
 import * as pactum from 'pactum';
 import { AuthDto } from "../types/authDto";
+import { LoginDto } from "../types/loginDto";
 
 // Describe block
 describe('App e2e', function () {
@@ -50,7 +51,13 @@ describe('App e2e', function () {
   // AuthDto we'll use for testing
   let dto: AuthDto = {
     email: "email@email.com",
-    password: "pass"
+    password: "pass",
+    nickname: "nick"
+  }
+
+  let loginDto: LoginDto = {
+    email: "email@email.com",
+    password: "pass",
   }
 
   describe('Auth', function () {
@@ -62,8 +69,16 @@ describe('App e2e', function () {
     })
 
     describe('Signin', function () {
-      it('Should sign up', function () {
+      it('Should log in', function () {
         return (pactum.spec().post('/auth/signin',).withBody(dto).expectStatus(201).stores('userToken', 'access_token'));
+      });
+    })
+
+    describe('Get Homepage', function () {
+      it('Should get() homepage', function () {
+        return (pactum.spec().get('/home',).withHeaders({
+          Authorization: 'Bearer $S{userToken}',
+        }).expectStatus(200).inspect());
       });
     })
 
