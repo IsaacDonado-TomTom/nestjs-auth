@@ -1,4 +1,4 @@
-import { Controller, Get, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, HttpCode, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { User } from '@prisma/client';
 import { GetUser } from '../auth/decorator';
@@ -13,6 +13,7 @@ export class HomeController {
 
     }
 
+    @HttpCode(200)
     @Get()
     home (@Req() req: any)
     {

@@ -79,7 +79,7 @@ export class AuthService {
             }
             else
             {
-                throw new ForbiddenException('User creation unsuccessful.');
+                throw error;
             }
         }
     }

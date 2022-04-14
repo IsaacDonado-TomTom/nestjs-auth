@@ -21,7 +21,9 @@ export class HomeService {
 
             if (!user)
             {
-                throw new ForbiddenException('Unable to find user');
+                return ({
+                    notFound: true,
+                });
             }
             else
             {
@@ -29,6 +31,7 @@ export class HomeService {
                 return ({
                     email: user.email,
                     nickname: user.nickname,
+                    notFound: false,
                 });
             }
         }

@@ -1,7 +1,9 @@
-import { IsBoolean, IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsBoolean, IsDecimal, IsEmail, IsNotEmpty, IsString } from 'class-validator';
 
 export class HomeDto
 {
+    sub: number | null;
+
     @IsEmail()
     @IsNotEmpty()
     email: string;
@@ -10,6 +12,4 @@ export class HomeDto
     @IsNotEmpty()
     nickname: string;
 
-    @IsBoolean()
-    notfound: boolean;
 }

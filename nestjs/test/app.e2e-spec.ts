@@ -70,7 +70,7 @@ describe('App e2e', function () {
 
     describe('Signin', function () {
       it('Should log in', function () {
-        return (pactum.spec().post('/auth/signin',).withBody(dto).expectStatus(201).stores('userToken', 'access_token'));
+        return (pactum.spec().post('/auth/signin',).withBody(dto).expectStatus(200).stores('userToken', 'access_token'));
       });
     })
 
