@@ -23,4 +23,10 @@ export class AuthController {
     {
         return (this.authService.signup(dto));
     }
+
+    @Post('google')
+    google(@Body() dto: {token: string})
+    {
+        return (this.authService.google(dto));
+    }
 }

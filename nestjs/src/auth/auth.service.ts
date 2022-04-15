@@ -6,13 +6,15 @@ import * as argon from 'argon2';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { OAuth2Client } from 'google-auth-library';
 
 @Injectable()
 export class AuthService {
 
+    private googleAuthClient: any;
     constructor(private prisma: PrismaService, private jwt: JwtService, private config: ConfigService)
-    {
-        
+    {        
+        this.googleAuthClient = new OAuth2Client(this.config.get('APP_GOOGLE_CLIENT_ID'));
     }
 
     async signin(dto: LoginDto)
@@ -48,6 +50,44 @@ export class AuthService {
                 return (token);
             }
         }
+    }
+
+    async google(dto: { token: string })
+    {
+        const token = dto.token;
+        const ticket = await this.googleAuthClient.verifyIdToken({
+            idToken: token,
+            audience: this.config.get('APP_GOOGLE_CLIENT_ID')
+        });
+        const { name, email } = ticket.getPayload();
+
+        //if (!name || !email)
+        //{
+        //    throw new ForbiddenException('Something went wrong yo.');
+        //}
+
+        // Try to find by email with prisma.user.findUnique
+        const user: any = await this.prisma.user.findUnique({
+            where: {
+                email: email,
+            },
+        });
+
+        if (!user)
+        {
+            // Save user in db
+            const user = await this.prisma.user.create({
+                data: {
+                    email: email,
+                    hash: 'whatever',
+                    nickname: name,
+                },
+            })
+        }
+
+        const response: { access_token } = await this.signToken(user.id, user.email); 
+
+        return (response);
     }
 
     async signup(dto: AuthDto)
