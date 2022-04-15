@@ -1,11 +1,13 @@
 # To run project locally with db on docker
 
+1. Run `make local-dependencies`
 1. Run `make local-backend`
 2. In another terminal run `make local-frontend`
 
+```text
 localhost:3001 = frontend
 localhost:3000 = backend
-
+```
 
 # To run project on docker container (Must fix)
 

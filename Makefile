@@ -36,6 +36,9 @@ up:
 	@ docker-compose -f db_docker/docker-compose.yml up --d
 	@ docker-compose -f app_docker/docker-compose.yml up --d
 
+local-dependencies:
+	@ cd nestjs && npm install && cd ../reactjs && npm install
+
 local-db:
 	@ cd nestjs && npm run db:dev:restart && npm run db:test:restart
 
