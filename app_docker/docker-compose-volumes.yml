@@ -7,12 +7,13 @@ services:
     container_name: nestjs
     ports:
       - 3000:3000
+      - 5555:5555
     networks:
       - app_default
 #    expose:
 #      - "5432"
-#    volumes:
-#      - app_nestjs:/
+    volumes:
+      - pong_nestjs:/nestjs
     restart: always
 
   reactjs:
@@ -25,8 +26,8 @@ services:
       - app_default
 #    expose:
 #      - "5432"
-#    volumes:
-#      - app_reactjs:/usr/src/app
+    volumes:
+      - pong_reactjs:/reactjs
     restart: always
 
   pongdb:
@@ -55,22 +56,21 @@ services:
       - app_default
     restart: always
 
-#volumes:
-#  
-#  app_nestjs:
-#    name: app_nestjs_volume
-#    driver_opts:
-#      type: 'none'
-#      o: 'bind'
-#      device: /home/$USER/Desktop/local_pong/nestjs
-#volumes:
-#
-#  app_reactjs:
-#    name: app_reactjs_volume
-#    driver_opts:
-#      type: 'none'
-#      o: 'bind'
-#      device: /home/$USER/app_reactjs_volume
+volumes:
+  
+  pong_nestjs:
+    name: pong_nestjs_volume
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: /home/$USER/pong_nestjs
+
+  pong_reactjs:
+    name: pong_reactjs_volume
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: /home/$USER/pong_reactjs
 
 networks:
 

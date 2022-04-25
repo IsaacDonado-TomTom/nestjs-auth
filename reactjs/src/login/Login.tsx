@@ -1,66 +1,71 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import Header from '../components/Header.tsx';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import './Login.css';
+
+//import OAuth2Login from 'react-simple-oauth2-login';
+import OAuth2Login from '@okteto/react-oauth2-login';
 
 
 function Login()
 {
   // State variables
     const [state, setState] = useState({
-        email: '',
-        password: '',
         errorMsg: '',
     });
 
     // Set navigate to redirect
     const navigate = useNavigate();
 
-    // Function called when form submit is pressed
-    const submitLogin = async function (context)
+    // Function if param is found on hook bellow
+    const handleParam = async function (code: string)
     {
-        // Disable default page refresh
-        context.preventDefault();
+      console.log(`Code received in frontend param is: ${code}`);
 
-        // Fetch from server auth module
-        const res = await fetch('http://localhost:3000/auth/signin', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-              email: context.target[0].value,
-              password: context.target[1].value
-          })
-        });
-        const data = await res.json();
+      // Fetch from server auth module
+      const res = await fetch('http://localhost:3000/auth/intra', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            code: code,
+        })
+      });
+      const data = await res.json();
 
-        // If access_token doesnt exist in response, fail
-        console.log(data);
-        if (!data.access_token)
-        {
-          setState({...state, errorMsg: `Error! ${data.message}.`});
-        }
-        else
-        {
-          window.localStorage.setItem('pongJwtToken', data.access_token);
-          navigate('/');
-        }
-        return ;
+      console.log('Response from nestjs API: ');
+      console.log(data);
+
+      window.localStorage.setItem('pongJwtToken', data.access_token);
+
+      navigate('/');
+    }
+
+    // Hook for grabbing params is available
+    const [searchParams, setSearchParams] = useSearchParams();
+    const codeParam: any = searchParams.get("code");
+
+    console.log(`Type of codeParam: ${typeof(codeParam)}\ncodeParam: ${codeParam}`);
+    
+    if (typeof(codeParam) !== 'object')
+    {
+      handleParam(codeParam);
     }
 
 
-    return (
-      <div>
-        <Header />
-        <form onSubmit={submitLogin}>
-            <p><label>Email: </label><input type='text' value={state.email}  onChange={(e) => { setState({...state, email: e.target.value}) }} /></p>
-            <p><label>Password: </label><input type='password' value={state.password} onChange={(e) => { setState({...state, password: e.target.value}) }} /></p>
-            <p><input type='submit' value='submit' /></p>
-        </form>
-        <p className='errorMsg'>{state.errorMsg}</p>
-        <p>Not a member? <Link to='/signup'>Create Account</Link></p>
-      </div>
+    return (        
+        <div className='flex-container'>
+          <div className='content-container'>
+            <div className='form-container'>
+            <h1>Login</h1>
+            <h2>
+            with <a href='https://api.intra.42.fr/oauth/authorize?client_id=abca6ca80c3cfa53d70d3e5d123f009ab5b31cc0e5e9710aa1e93c967fb96e7d&redirect_uri=http%3A%2F%2Flocalhost%3A3001%2Flogin&response_type=code'>intra42!</a>
+            </h2>
+            <p className='errorMsg'>{state.errorMsg}</p>
+              
+            </div>
+          </div>
+        </div>
     );
 }
 

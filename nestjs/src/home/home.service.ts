@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { Injectable, ForbiddenException, ImATeapotException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { HomeDto } from 'types/homeDto';
 import { JwtService } from '@nestjs/jwt';
@@ -27,10 +27,15 @@ export class HomeService {
             }
             else
             {
+                if (user.userReady === false)
+                {
+                    throw new ImATeapotException();
+                }
                 // Return relevant data to user for homepage
                 return ({
                     email: user.email,
                     nickname: user.nickname,
+                    defaultPic: user.defaultPic,
                     notFound: false,
                 });
             }

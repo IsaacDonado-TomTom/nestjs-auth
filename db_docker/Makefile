@@ -3,20 +3,16 @@ NAME = db
 all: up
 
 clean:
-	@ docker-compose down
+	@ docker-compose -f ../app_docker/docker-compose-volumes.yml down pongdb
+	@ docker-compose -f ../app_docker/docker-compose-volumes.yml down testdb
 
 fclean: clean
-	@ docker volume rm db_volume
-	@ sudo rm -rf /home/$(USER)/pong_volume/db
+	@ docker-compose -f ../app_docker/docker-compose-volumes.yml rm -s -f -v pongdb
+	@ docker-compose -f ../app_docker/docker-compose-volumes.yml rm -s -f -v testdb
 
 up:
 	@ mkdir -pv /home/$(USER)/pong_volume/db
-	@ docker-compose up
-
-start:
-	@ docker-compose start
-
-stop:
-	@ docker-compose stop
+	@ docker-compose -f ../app_docker/docker-compose-volumes.yml up pongdb
+	@ docker-compose -f ../app_docker/docker-compose-volumes.yml up testdb
 
 .PHONY: clean fclean reload all db

@@ -5,12 +5,12 @@ import { ExtractJwt, Strategy } from "passport-jwt";
 import { LoginDto } from "types/loginDto";
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
+export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
     constructor(config: ConfigService)
     {
         super({
             jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-            secretOrKey: config.get('ACCESS_TOKEN_SECRET'),
+            secretOrKey: config.get('REFRESH_TOKEN_SECRET'),
         })
     }
 

@@ -1,34 +1,17 @@
-FROM nginx
+FROM debian:latest
 
-WORKDIR /usr/share/react
+RUN apt update && apt -y upgrade
 
-RUN curl -fsSL https://deb.nodesource.com/setup_17.x | bash -
-RUN apt-get install -y nodejs
+RUN apt install -y curl
 
-COPY ./reactjs/package*.json ./
+RUN curl -sL https://deb.nodesource.com/setup_17.x | bash -
 
-RUN npm install
+RUN apt install -y nodejs
 
-COPY ./reactjs ./
+COPY ./reactjs ./reactjs
 
-RUN npm run build
+WORKDIR /reactjs
 
-RUN rm -r /usr/share/nginx/html/*
+#RUN npm install --force
 
-RUN cp -a build/. /usr/share/nginx/html
-
-#FROM node:latest
-#
-##RUN npm update
-#
-#RUN npm install -g npm@latest
-#
-#WORKDIR /usr/src/
-#
-#COPY ./reactjs ./app
-#
-#WORKDIR /usr/src/app
-#
-#RUN npm install
-#
-#CMD npm start
+CMD npm run start

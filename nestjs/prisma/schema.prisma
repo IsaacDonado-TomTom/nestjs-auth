@@ -14,10 +14,11 @@ model User {
   id Int @id @default(autoincrement())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  userReady Boolean @default(false)
 
   email String @unique
-  hash String
-  nickname String @unique
+  nickname String
+  defaultPic String @unique
 
   @@map("users")
 }

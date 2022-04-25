@@ -1,7 +1,8 @@
-import { Body, Controller, HttpCode, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthDto } from '../../types/authDto'
 import { LoginDto } from 'types/loginDto';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('auth')
 export class AuthController {
@@ -11,16 +12,19 @@ export class AuthController {
         this.authService = authService;
     }
 
-    @HttpCode(200)
-    @Post('signin')
-    signin(@Body() dto: LoginDto)
+    @Post('intra')
+    intra(@Body() dto: {code: string})
     {
-        return (this.authService.signin(dto));
+        return (this.authService.intra(dto));
     }
 
-    @Post('signup')
-    signup(@Body() dto: AuthDto)
+    @UseGuards(AuthGuard('jwt'))
+    @Patch('intra/setnick')
+    setnick(@Body() dto: any, @Req() req: any)
     {
-        return (this.authService.signup(dto));
+        console.log('dto received in controller, sending this and email to service.');
+        console.log(dto);
+        return (this.authService.setNick(dto, req.user.email));
     }
+
 }

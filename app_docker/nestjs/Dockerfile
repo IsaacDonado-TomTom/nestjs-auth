@@ -1,15 +1,23 @@
 FROM debian:latest
 
-RUN apt update
+RUN apt update && apt -y upgrade
 
-RUN apt install -y nodejs npm
+RUN apt install -y curl
 
-COPY ./nestjs ./
+RUN curl -sL https://deb.nodesource.com/setup_17.x | bash -
+
+RUN apt install -y nodejs
+
+COPY ./nestjs ./nestjs
+
+#RUN cd nestjs && npm install --force
+
+COPY ./entrypoint.sh ./
 
 RUN ls && pwd
 
-WORKDIR /nestjs
+RUN chmod +x entrypoint.sh
 
-#RUN npm install
+ENTRYPOINT [ "./entrypoint.sh" ]
 
-CMD npm run start:dev
+CMD [ "npm", "run", "start:dev" ]

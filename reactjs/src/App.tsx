@@ -10,7 +10,8 @@ function App()
   const [state, setState] = useState({
     pongJwtToken: '',
     userEmail: '',
-    userNickname: ''
+    userNickname: '',
+    defaultPic: '',
   });
 
   // Set navigate for redirecting
@@ -40,14 +41,22 @@ function App()
       });
       const data = await res.json();
 
+      console.log('Trying to log response from api/home');
+      console.log(data);
+
       // If 401 unauthorized, navigate to login, else set state.
       if (data.statusCode === 401)
       {
         navigate('/login');
       }
+      else if (data.statusCode === 418)
+      {
+        navigate('login/setnick');
+      }
       else
       {
-        setState({...state, pongJwtToken: window.localStorage.getItem('pongJwtToken'), userEmail: data.email, userNickname: data.nickname});
+        console.log(data);
+        setState({...state, pongJwtToken: window.localStorage.getItem('pongJwtToken'), userEmail: data.email, userNickname: data.nickname, defaultPic: data.defaultPic});
       }
     }
 
@@ -63,8 +72,9 @@ function App()
 
 
   return (
-    <div>
+    <div className='subtitle'>
       <Header />
+      <img className='profilePic' src={ state.defaultPic }></img>
       <p>Hello, {state.userNickname ? state.userNickname : 'loading...'}!</p>
       <p>Your email is {state.userEmail ? state.userEmail : 'loading...'}</p>
       <p><button onClick={logOut}>Log out</button></p>

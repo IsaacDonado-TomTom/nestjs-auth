@@ -17,3 +17,9 @@
   font-size: calc(10px + 2vmin);
   color: white;
 }
+
+.profilePic {
+  border-radius: 75%;
+  height: 100px;
+  width: 100px;
+}
