@@ -1,78 +1,52 @@
 NAME = pong
 
-all: dependencies
-	@ cp -r ./nestjs ./app_docker/nestjs
-	@ cp -r ./reactjs ./app_docker/reactjs
-	@ docker-compose -f app_docker/docker-compose.yml up --d
-	@ rm -rf ./app_docker/nestjs/nestjs
-	@ rm -rf ./app_docker/reactjs/reactjs
-
-docker-with-volumes: dependencies
-	@ cp -r ./nestjs ./app_docker/nestjs
-	@ cp -r ./reactjs ./app_docker/reactjs
-	@ mkdir -pv /home/${USER}/pong_nestjs
-	@ mkdir -pv /home/${USER}/pong_reactjs
-	@ docker-compose -f app_docker/docker-compose-volumes.yml up --d
-	@ rm -rf ./app_docker/nestjs/nestjs
-	@ rm -rf ./app_docker/reactjs/reactjs
-
-delete-volumes:
-	@ docker volume rm pong_nestjs_volume
-	@ docker volume rm pong_reactjs_volume
-
-docker-up:
-	@ docker-compose -f app_docker/docker-compose.yml up --d
+DIRECTORY = ~/Desktop/pong/
 
 clean:
-	@ docker-compose -f app_docker/docker-compose.yml down
+	@ sudo rm -rf volumes/api/*
+	@ sudo rm -rf volumes/ui/*
+	@ sudo rm -rf volumes/api/.*
+	@ sudo rm -rf volumes/ui/.*
 
-docker-down: clean
+up:
+	@ docker-compose up --build
 
-fclean: clean
-	@ docker-compose -f app_docker/docker-compose.yml rm -s -f -v reactjs
-	@ docker-compose -f app_docker/docker-compose.yml rm -s -f -v nestjs
-	@ docker-compose -f app_docker/docker-compose.yml rm -s -f -v pongdb
-	@ docker-compose -f app_docker/docker-compose.yml rm -s -f -v testdb
-	@ docker volume prune
-	@ docker rmi reactjs:henkies nestjs:henkies
-#	@ sudo rm -rf ~/pong_nestjs ~/pong_reactjs
+down:
+	@ docker-compose down --rmi all --volumes --remove-orphans
 
-
-
-
-# MIGRATE ALL CHANGES FROM VOLUMES IN HOME FOLDER AND REPLACES THE EXISTING FOLDERS HERE.
-
+# MIGRATE ALL CHANGES FROM VOLUMES FOLDER AND REPLACES THE EXISTING API AND UI FOLDERS.
 changes-from-volumes:
-	@ rm -rf ./nestjs ./reactjs
-	@ cp -r ~/pong_reactjs ./reactjs
-	@ cp -r ~/pong_nestjs ./nestjs
-	@ sed -i 's/pongdb:5432/localhost:5434/g' ./nestjs/.env
+	@ rm -rf ./api/nestjs
+	@ rm -rf ./ui/reactjs
+	@ cp -r ./volumes/api ./api/nestjs
+	@ cp -r ./volumes/ui ./ui/reactjs
 
+# RESTART PONG DATABASE
+restart-db:
+	@ docker-compose rm -s -f -v pong-db
+	@ docker compose up --build -d pong-db
+	@ docker-compose exec -T pong-api npm run prisma:dev:deploy
 
+# RESTART PONG (TEST) DATABASE
+restart-test-db:
+	@ docker-compose rm -s -f -v test-db
+	@ docker-compose up --detach --build test-db
+	@ docker-compose exec -T pong-api npm run prisma:test:deploy
 
+# RUN E2E TESTS
+run-e2e-tests: restart-test-db
+	@docker-compose exec pong-api npm run test:e2e
 
+# RESTART API
+restart-api:
+	@ docker-compose rm -s -f -v pong-api
+	@ docker-compose up --detach --build pong-api
 
-# LOCAL PROJECT MACROS
+# RESTART UI
+restart-ui:
+	@ docker-compose rm -s -f -v pong-ui
+	@ docker-compose up --detach --build pong-ui
 
+# Install NPM dependencies
 dependencies:
-	@ cd nestjs && npm install --force && cd ../reactjs && npm install --force
-
-local-db-down:
-	@ docker-compose -f db_docker/docker-compose.yml rm -s -f -v pongdb
-	@ docker-compose -f db_docker/docker-compose.yml rm -s -f -v testdb
-
-local-db-up:
-	@ docker-compose -f app_docker/docker-compose.yml up --d
-
-local-db-clean:
-	@ docker-compose -f db_docker/docker-compose.yml rm -s -f -v pongdb
-	@ docker-compose -f db_docker/docker-compose.yml rm -s -f -v testdb
-
-local-db:
-	@ cd nestjs && npm run db:dev:restart && npm run db:test:restart
-
-local-backend: local-db
-	@ cd nestjs && npm run start:dev
-
-local-frontend:
-	@ cd reactjs && npm start
+	@ cd api/nestjs && npm install --force && cd ../../ui/reactjs && npm install --force

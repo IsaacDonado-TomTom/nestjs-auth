@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  pong-api:
+    build: api
+    image: pong-api:henkies
+    container_name: pong-api
+    ports:
+      - 3000:3000
+      - 5555:5555
+    networks:
+      - app_default
+    volumes:
+      - pong_api:/nestjs
+    restart: always
+
+  pong-ui:
+    build: ui
+    image: pong-ui:henkies
+    container_name: pong-ui
+    ports:
+      - 3001:3001
+    networks:
+      - app_default
+    volumes:
+      - pong_ui:/reactjs
+    restart: always
+
+  pong-db:
+    image: postgres:14.2
+    container_name: pong-db
+    ports:
+      - 5434:5432
+    environment:
+      - POSTGRES_USER=user123
+      - POSTGRES_PASSWORD=pass123
+      - POSTGRES_DB=pongdb
+    networks:
+      - app_default
+    restart: always
+
+  test-db:
+    image: postgres:14.2
+    ports:
+      - 5435:5432
+    container_name: test-db
+    environment:
+      - POSTGRES_USER=user123
+      - POSTGRES_PASSWORD=pass123
+      - POSTGRES_DB=nestdb
+    networks:
+      - app_default
+    restart: always
+
+volumes:
+  
+  pong_api:
+    name: pong_api_volume
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: /home/$USER/Desktop/pong/volumes/api
+
+  pong_ui:
+    name: pong_ui_volume
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: /home/$USER/Desktop/pong/volumes/ui
+
+networks:
+
+  app_default:
+    driver: bridge
